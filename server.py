@@ -62,11 +62,23 @@ class Handler(object):
             sys.exit(-1)
         logging.info("Loaded new configuration: %s" % self.config)
 
+    def _name_from_message(self, request):
+        for each in request.question:
+            name = each.name.to_text()[:-1]
+            logging.info("Extracted %s from request" % str(name))
+            return name
+
     def handle(self, data, addr):
         logging.info("Handling request for %s" % str(addr))
         request = message.from_wire(data)
         logging.info("Request: %s" % str(request))
-        return message.make_response(request)
+        name = self._name_from_message(request)
+        if name in self.config:
+            logging.debug("Found %s in config file" % name)
+            return message.make_response(request)
+        else:
+            logging.info("Resolved %s from real dns" % name)
+            return message.make_response(request)
 
 if __name__ == "__main__":
     logging.info("Starting")

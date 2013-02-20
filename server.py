@@ -3,7 +3,7 @@
 import socket
 from threading import Thread
 import logging
-from dns import message
+from dns import message, query
 import sys
 import time
 import signal
@@ -22,7 +22,7 @@ class DnsServer(Thread):
 
         self.handler = handler
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.bind(('',53))
+        self.socket.bind((self.handler.getHost(),self.handler.getPort()))
 
     def run(self):
         logging.info("Server running")
@@ -48,6 +48,12 @@ class Handler(object):
     def signal_handler(self, signun, frame):
         logging.info("Got signal, reloading current configuration")
         self.__load_config()
+
+    def getHost(self):
+        return self.config['general']['host']
+
+    def getPort(self):
+        return self.config['general']['port']
 
     def __load_config(self):
         try:
@@ -75,12 +81,12 @@ class Handler(object):
         request = message.from_wire(data)
         logging.info("Request: %s" % str(request))
         name = self._name_from_message(request)
-        if name in self.config:
+        if name in self.config['mapping']:
             logging.debug("Found %s in config file" % name)
             return message.make_response(request)
         else:
             logging.info("Resolved %s from real dns" % name)
-            return message.make_response(request)
+            return query.udp(request, self.config['general']['nameserver'])
 
 if __name__ == "__main__":
     logging.info("Starting")

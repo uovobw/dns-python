@@ -6,6 +6,8 @@ import logging
 from dns import message
 import sys
 import time
+import signal
+import yaml
 
 logging.basicConfig(filename = "log", level = logging.DEBUG)
 
@@ -37,8 +39,28 @@ class DnsServer(Thread):
         return self.handler.handle(data, addr)
 
 class Handler(object):
-    def __init__(self):
-        pass
+    def __init__(self, configFile = 'dnspython.yaml'):
+        signal.signal(signal.SIGUSR1, self.signal_handler)
+        self.configFile = configFile
+        self.config = {}
+        self.__load_config()
+
+    def signal_handler(self, signun, frame):
+        logging.info("Got signal, reloading current configuration")
+
+    def __load_config(self):
+        try:
+            self.config = yaml.load(open(self.configFile).read())
+        except IOError as e:
+            print "The file %s does not seem to exists, aborting" % self.configFile
+            sys.exit(-1)
+        except yaml.ScannerError as e:
+            print "File %s contained errors, please check your syntax" % self.configFile
+            sys.exit(-1)
+        except Exception as e:
+            print "ERROR: %s" % e.message
+            sys.exit(-1)
+        logging.info("Loaded new configuration: %s" % self.config)
 
     def handle(self, data, addr):
         logging.info("Handling request for %s" % str(addr))

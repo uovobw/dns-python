@@ -47,9 +47,11 @@ class Handler(object):
 
     def signal_handler(self, signun, frame):
         logging.info("Got signal, reloading current configuration")
+        self.__load_config()
 
     def __load_config(self):
         try:
+            del self.config
             self.config = yaml.load(open(self.configFile).read())
         except IOError as e:
             print "The file %s does not seem to exists, aborting" % self.configFile

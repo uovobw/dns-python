@@ -3,7 +3,7 @@
 import socket
 from threading import Thread
 import logging
-from dns import message, query
+from dns import message, query, rrset, rdataclass, rdatatype
 import sys
 import time
 import signal
@@ -76,16 +76,21 @@ class Handler(object):
             logging.info("Extracted %s from request" % str(name))
             return name
 
+    def _make_response_for(self, request, name, address):
+        response = message.make_response(request)
+        respset = rrset.from_text(name + ".", 300, rdataclass.IN, rdatatype.A, address)
+        response.answer.append(respset)
+        return response
+
     def handle(self, data, addr):
         logging.info("Handling request for %s" % str(addr))
         request = message.from_wire(data)
-        logging.info("Request: %s" % str(request))
         name = self._name_from_message(request)
         if name in self.config['mapping']:
             logging.debug("Found %s in config file" % name)
-            return message.make_response(request)
+            return self._make_response_for(request, name, self.config['mapping'][name])
         else:
-            logging.info("Resolved %s from real dns" % name)
+            logging.debug("Resolved %s from real dns" % name)
             return query.udp(request, self.config['general']['nameserver'])
 
 if __name__ == "__main__":

@@ -38,18 +38,11 @@ class Configuration(pyinotify.ProcessEvent):
         self.configFile = configFile
         self.config = {}
         self.__load_config()
-        self.watchManager = pyinotify.WatchManager()
-        self.notifier = pyinotify.ThreadedNotifier(self.watchManager, self)
-        self.watchManager.add_watch(self.configFile, pyinotify.IN_CLOSE_WRITE)
-        self.notifier.start()
-
-    def stop(self):
-        self.notifier.stop()
 
     def __load_config(self):
+        print "Reloading config..."
         try:
             self.config = yaml.load(open(self.configFile).read())
-            print "Reloaded config!"
         except IOError as e:
             print "The file %s does not seem to exists, aborting" % self.configFile
             sys.exit(-1)
@@ -59,7 +52,10 @@ class Configuration(pyinotify.ProcessEvent):
         except Exception as e:
             print "ERROR: %s" % e.message
             sys.exit(-1)
-        print "loaded config:", self.config
+        print "Loaded:", self.config
+
+    def get_config_file(self):
+        return self.configFile
 
     def process_IN_CLOSE_WRITE(self, event):
         self.__load_config()
@@ -70,13 +66,18 @@ class Configuration(pyinotify.ProcessEvent):
         else:
             try:
                 return socket.gethostbyname_ex(name)[2][0]
-            except socket.gaierror:
+            except:
                 return "0.0.0.0"
 
 
 if __name__ == '__main__':
 
     config = Configuration()
+
+    watchManager = pyinotify.WatchManager()
+    notifier = pyinotify.ThreadedNotifier(watchManager, config)
+    notifier.start()
+    watchManager.add_watch(config.get_config_file(), pyinotify.IN_CLOSE_WRITE)
 
     udps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udps.bind(('',53))
@@ -92,5 +93,5 @@ if __name__ == '__main__':
         print "Quit"
         udps.close()
 
-    config.stop()
+    notifier.stop()
 

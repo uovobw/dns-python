@@ -8,6 +8,7 @@ import sys
 import time
 import signal
 import yaml
+import os
 
 logging.basicConfig(filename = "log", level = logging.DEBUG)
 
@@ -62,7 +63,7 @@ class Handler(object):
         except IOError as e:
             print "The file %s does not seem to exists, aborting" % self.configFile
             sys.exit(-1)
-        except yaml.ScannerError as e:
+        except yaml.scanner.ScannerError as e:
             print "File %s contained errors, please check your syntax" % self.configFile
             sys.exit(-1)
         except Exception as e:
@@ -93,8 +94,21 @@ class Handler(object):
             logging.debug("Resolved %s from real dns" % name)
             return query.udp(request, self.config['general']['nameserver'])
 
+def clean_pid(pidfile):
+    try:
+        os.remove(pidfile)
+    except OSError:
+        pass
+
 if __name__ == "__main__":
-    logging.info("Starting")
+    pid = os.getpid()
+    pidfile = "dnspython.pid"
+    logging.info("Starting as pid %s" % pid)
+    try:
+        open(pidfile,"w+").write(str(pid))
+    except Exception as e:
+        print e.message
+        print "FATAL: could not open the pidfile %s" % pidfile
     try:
         handler = Handler()
         server = DnsServer(handler)
@@ -105,6 +119,8 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         server.stop()
+        clean_pid(pidfile)
         sys.exit(0)
     server.join()
+    clean_pid(pidfile)
     logging.info("Quitting")
